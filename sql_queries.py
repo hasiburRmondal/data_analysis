@@ -29,14 +29,45 @@ engine = create_engine(db_url)
 # print(total_revenue_by_month)
 
 # =====================Show the top 3 products by total sales================
+# query = """
+# SELECT p.`product category`, SUM(i.price) AS total_sales
+# FROM order_items i
+# INNER JOIN products p ON i.product_id = p.product_id
+# GROUP BY p.`product category`
+# ORDER BY total_sales DESC
+# LIMIT 3;
+# """
+# top_3_categories = pd.read_sql(query, engine)
+# print("Top 3 product categories by total sales:")
+# print(top_3_categories)
+
+# =====================Month Over Month Sale================
 query = """
-SELECT p.`product category`, SUM(i.price) AS total_sales
-FROM order_items i
-INNER JOIN products p ON i.product_id = p.product_id
-GROUP BY p.`product category`
-ORDER BY total_sales DESC
-LIMIT 3;
+SELECT DISTINCT
+    month,
+    total_sales,
+    LAG(total_sales) OVER (ORDER BY month) AS previous_month_sales,
+    ROUND(
+        (total_sales - LAG(total_sales) OVER (ORDER BY month)) /
+        LAG(total_sales) OVER (ORDER BY month) * 100,
+        2
+    ) AS month_over_month_change
+FROM (
+    SELECT
+        DATE_FORMAT(o.order_purchase_timestamp, '%%Y-%%m') AS month,
+        SUM(p.payment_value) AS total_sales
+    FROM orders o
+    INNER JOIN payments p ON o.order_id = p.order_id
+    GROUP BY DATE_FORMAT(o.order_purchase_timestamp, '%%Y-%%m')
+) AS monthly_sales
+ORDER BY month;
+
+
 """
-top_3_categories = pd.read_sql(query, engine)
-print("Top 3 product categories by total sales:")
-print(top_3_categories)
+month_over_month_sales = pd.read_sql(query, engine)
+# month_over_month_sales = month_over_month_sales.drop_duplicates()
+print("Month Over Month Sale:")
+print(month_over_month_sales)
+
+
+
